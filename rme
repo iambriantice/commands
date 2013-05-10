@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+#####################
+#
+# rme: removes files based on filename extension
+#
+################
+# Brian G. Tice
+# May 9, 2013
+####################
 import os,sys,optparse
 
 def ask_user( prompt ):
