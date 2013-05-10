@@ -1,0 +1,156 @@
+#!/usr/bin/env python
+import os,sys,optparse
+
+def ask_user( prompt ):
+  """Ask the user a yes/no question.  Return true if they say yes."""
+  answer = raw_input( prompt )
+  if answer.lower() in ["y","yes"]:
+    return True
+  else:
+    return False
+
+
+class FileFamily:
+  def __init__(self, name, desc, extensions):
+    self.name = name
+    self.desc = desc
+    self.extensions = extensions
+
+  def __str__(self):
+    ret = "--%(name)s : %(desc)s" % self.__dict__
+    ret += "\n"
+    ret +="    removes: %s" % self.extensions
+    return ret
+
+
+#################
+# DEFINE FAMILIES
+#################
+FAMILIES = []
+FAMILIES.append( FileFamily( "latex", "Temporoary files created when making a latex document.",  [ \
+             "aux" \
+             ,"bbl" \
+             ,"blg" \
+             ,"brf" \
+             ,"cb" \
+             ,"cb2" \
+             ,"dvi" \
+             ,"lof" \
+             ,"ps" \
+             ,"pdf" \
+             ,"out" \
+             ,"toc" \
+             ,"lot" \
+             ,"bak" \
+             ,"log" \
+             ,"fdb_latexmk" \
+             ] ) )
+FAMILIES.append( FileFamily( "root-plot", "Remove image files created by printint ROOT plots", [ \
+             "png" \
+             ,"jpeg" \
+             ,"pdf" \
+             ,"eps" \
+             ,"ps" \
+             ] ) )
+FAMILIES.append( FileFamily( "root-plot-full", "Remove image, binary and macro files created by printing ROOT plots (be careful!)", [ \
+             "png" \
+             ,"jpeg" \
+             ,"pdf" \
+             ,"eps" \
+             ,"ps" \
+             ,"root" \
+             ,"cxx" \
+             ] ) )
+FAMILY_NAMES = [ f.name for f in FAMILIES ]
+
+
+usage = """Usage: %prog [options]
+Removes files with a list of extensions.  Supply your own or use a preset family of extensions.
+"""
+
+parser = optparse.OptionParser( usage = usage )
+parser.add_option( "-f", "--family", dest="families", default=[], action="append", help="Extension family(ies) to remove (can supply many).  See choices with --show-families.")
+parser.add_option( "-e", "--ext", dest="extensions", default=[], action="append", help="Extension to remove (can supply many).")
+parser.add_option( "-r", "--recursive", dest="recursive", default=False, action="store_true", help="Look for tmp files in subdirectories.")
+parser.add_option( "-i", "--interactive", dest="interactive", default=False, action="store_true", help="Ask before deleting a file.")
+parser.add_option( "--show_families", dest="show_families", default=False, action="store_true", help="Show available extenion families and quit." )
+parser.add_option( "-v", "--verbose", dest="verbose", default=False, action="store_true", help="Print more." )
+parser.add_option( "--test", dest="test", default=False, action="store_true", help="Do everything but remove the files." )
+
+opts,args = parser.parse_args()
+
+if len( sys.argv ) < 2:
+  parser.parse_args(["--help"])
+
+if opts.show_families:
+  for family in FAMILIES:
+    print family
+  sys.exit()
+
+for name in opts.families:
+  family = None
+  for f in FAMILIES:
+    if name == f.name:
+      family = f
+      break
+  if not family:
+    sys.exit( "ERROR: Family '%s' not recognized" % name )
+  for ext in family.extensions:
+    if ext not in opts.extensions:
+      opts.extensions.append(ext)
+
+if opts.verbose:
+  print "Removing files with extensions: %s" % opts.extensions
+
+rm_files = []
+if opts.recursive:
+  #walk through all files
+  for root, dirs, files in os.walk("."):
+    for fname in files:
+      bname,ext = os.path.splitext(fname)
+      if not ext:
+        if opts.verbose:
+          print "Cannot find extension for file: ",os.path.join(root,fname)
+        continue
+      if ext in opts.extensions:
+        rm_files.append( os.path.join(root,fname) )
+
+else: #only remove files in pwd
+  for fname in os.listdir("."):
+    if not os.path.isfile(fname):
+      continue
+    bname,ext = os.path.splitext(fname)
+    if not ext:
+      if opts.verbose:
+        print "Cannot find extension for file: ",fname
+      continue
+    if ext[1:] in opts.extensions:
+      rm_files.append( fname )
+
+if opts.verbose:
+  print "Found %d files to remove" % len(rm_files)
+  print "  Files with matching extensions: ", rm_files
+
+
+removed = []
+not_removed = []
+for file in rm_files:
+  if opts.interactive and not ask_user( "Remove file '%s' [y/n]?" % file ):
+    if opts.verbose:
+      print "   skipping file: ",file
+    not_removed.append(file)
+    continue
+
+  if opts.verbose:
+    print "    removing file: ",file
+
+  #do you really want to remove
+  if not opts.test:
+    os.unlink(file)
+
+  removed.append(file)
+
+if opts.verbose:
+  print "Removed %d files.  Kept %d files." % ( len(removed), len(not_removed) )
+  print "  Files removed: ", removed
+  print "  Files kept   : ", not_removed
