@@ -1,0 +1,96 @@
+#!/usr/bin/perl
+##Brian G. Tice
+#4/26/10
+
+use File::Path;
+use File::Basename;
+
+sub print_usage{
+  print "================================================================\n";
+  print "USAGE:\n";
+  print "      smartMove [OPTIONS] [input_files_glob] [input_files_glob]... [old_string],[new_string] [old_string],[new_string] ... [output directory]\n";
+  print "----------------------------------------------------------------\n";
+  print " [input files]             (>=1 required): Specify the filenames that are allowed to change.  Must be first or after options.  Use at least 1.\n";
+  print " [old_string],[new_string]             : If 'old_string' is found in file name, replace it with 'new_string'.\n";
+  print "         tip: you can use perl regex syntax for these strings if you put them in quotes.\n";
+  print " -dir [directory]                        : copy files to directory\n";
+  print "  [OPTIONS]: mostly borrowed options flags from 'mv'\n";
+  print " -h        : help.  print this.\n";
+  print " -a        : move all. not just ones that get a swap.\n";
+  print " -i        : interactive.  prompt before overwrite.\n";
+  print " -f        : force. overwrite all files. noprompts.\n";
+  print " -u        : update. overwrite if source is newer than destination.\n";
+  print " -v        : verbose.  show source->destination for all copied files\n";
+  print "-------------------------------------------------------------\n";
+  print "  examples: \n";
+  print "'smartMove -vu *.ps event_display,NuclearTargetEvent nuclearDisplays'\n";
+  print "'smartMove BrianGeorgeTice*.doc BrianGeorge, ' - (replaces 'BrianGeorge' with nothing)\n"; 
+  print "'smartMove -i *.C *.h ,.bak backups ' - (makes a backup copy of all .C and .h files and puts them into the backups directory.\n";
+}
+
+$options      = "";
+$dir          = "";
+$move_all     = 0;
+$help         = 0;
+%new_strings;
+
+for (0..$#ARGV){
+  $options = $ARGV[$_] if $ARGV[$_]=~/^-[\w]+$/;
+  if($ARGV[$_]=~/^(\S*),(\S*)$/){
+    my $new_key = "$1";
+    $new_key="\$" if $new_key eq ""; 
+    $new_strings{$new_key}=$2;
+  } # 2 words separated by a comma, second word can be blank. fill hash.
+}
+ 
+$help = 1 if $options=~/h/;
+if($help || $#ARGV<1){
+  &print_usage;
+  exit 0;
+}
+
+if($options=~/[^-iafuv]/){
+  die "ERROR. The options you entered '$options' contained a bad choice.  Check usage.\n";
+}
+$move_all = 1 if $options=~/[a]/;
+$options=~s[a][]g;
+
+$num_swaps = scalar(keys %new_strings);
+
+if(!($ARGV[$#ARGV]=~/^(\S+),(\S*)$/)){
+  if(-f $ARGV[$#ARGV]){
+    print "The last argument is an existing file.  You either:\n";
+    print "  a) Forgot to specify a match or output directory.\n";
+    print "  b) Messed up the 'input, swap, output' order.\n";
+    print "  c) Pick a bad name for the output directory.\n";
+    die "ERROR.  That stuff I just said...\n";
+  }
+  $dir = $ARGV[$#ARGV];
+  $dir.="/";
+}
+
+die "ERROR: You did not specify any swaps or an destination.  The command is useless.\n" if ($dir eq "" and $num_swaps==0);
+
+mkpath ( "$dir",  1, 0755 ) unless $dir eq "";
+
+$start = ($options eq "")?0:1;               #if options are provided, the list of files starts with argument 1
+$end   = $#ARGV - $num_swaps;                #the list of files ends with the string pairs start
+$end-- if $dir ne "";                        #list of files ends 1 space farther from $#ARGV if an output directory is provided
+
+if($start>$end){
+  die "ERROR: No input files found. You used the wrong syntax or no files matched the input glob.\n";
+}
+for ($start..$end){
+  my $old_filename = $ARGV[$_];
+  my $ls = `ls $old_filename`;
+  $ls or die "ERROR.  No files matched input file glob '$ARGV[$_]'.\n";
+  my $new_filename = basename("$ARGV[$_]");
+  foreach $old_string (sort keys %new_strings){
+    $new_filename =~s[$old_string][$new_strings{$old_string}]g;
+  }
+  next if (($new_filename eq $old_filename) and ($move_all==0));
+  my $command = "mv $options $old_filename ${dir}${new_filename}";
+#  print "$command\n" if $options=~/[v]/;
+  system("$command");
+}
+exit 0;
