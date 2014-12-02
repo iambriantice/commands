@@ -15,7 +15,7 @@ sub print_usage{
   print "         tip: you can use perl regex syntax for these strings if you put them in quotes.\n";
   print "         tip: leave [old_string] empty to add [new_string] to the end of the filename.\n";
   print "         tip: leave [new_string] empty to remove [old_string] from the filename.\n";
-  print " [output directory]         : copy files to directory (default is current directory)\n";
+  print " -dir [directory]                        : copy files to directory\n";
   print "  [OPTIONS]: mostly borrowed options flags from 'mv'\n";
   print " -h        : help.  print this.\n";
   print " -a        : move all. not just ones that get a swap.\n";
@@ -64,7 +64,7 @@ if(!($ARGV[$#ARGV]=~/^(\S+),(\S*)$/)){
     print "The last argument is an existing file.  You either:\n";
     print "  a) Forgot to specify a match or output directory.\n";
     print "  b) Messed up the 'input, swap, output' order.\n";
-    print "  c) Picked a bad name for the output directory.\n";
+    print "  c) Pick a bad name for the output directory.\n";
     die "ERROR.  That stuff I just said...\n";
   }
   $dir = $ARGV[$#ARGV];
